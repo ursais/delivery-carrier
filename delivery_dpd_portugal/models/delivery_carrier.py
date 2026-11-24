@@ -159,62 +159,62 @@ class DeliveryCarrier(models.Model):
                 "shipment/create", shipment_data, picking
             ).json()
 
-            if shipment_response.get("success", False):
-                # Update picking with tracking info
-                tracking_number = shipment_response["tracking_number"]
-                picking.carrier_tracking_ref = tracking_number
-
-                # Get label using account
-                label_response = self._dpd_pt_request_with_account(
-                    f"shipment/label/{tracking_number}",
-                    {"format": self.dpd_portugal_label_format},
-                    picking,
-                )
-                label_content = label_response.content
-
-                # Post message with label attachment
-                label_name = (
-                    f"DPD_Portugal_Label_{tracking_number}"
-                    f".{self.dpd_portugal_label_format.lower()}"
-                )
-                message = picking.message_post(
-                    body=self.env._("DPD Portugal label generated"),
-                    attachments=[(label_name, label_content)],
-                )
-
-                # Send email if enabled
-                if (
-                    self.dpd_portugal_send_label_email
-                    and picking.partner_id.email
-                    and message.attachment_ids
-                ):
-                    template = self.env.ref(
-                        "delivery_dpd_portugal.email_template_dpd_label",
-                        raise_if_not_found=False,
-                    )
-                    if template:
-                        template.send_mail(
-                            picking.id,
-                            force_send=True,
-                            email_values={
-                                "attachment_ids": [(4, message.attachment_ids[0].id)],
-                                "email_to": picking.partner_id.email,
-                            },
-                        )
-
-                result.append(
-                    {
-                        "exact_price": shipment_response.get("price", 0.0),
-                        "tracking_number": shipment_response["tracking_number"],
-                    }
-                )
-            else:
+            if not shipment_response.get("success"):
                 raise UserError(
                     self.env._(
                         "Failed to create shipment: %(message)s",
                         message=shipment_response.get("message", "Unknown error"),
                     )
                 )
+
+            # Update picking with tracking info
+            tracking_number = shipment_response["tracking_number"]
+            picking.carrier_tracking_ref = tracking_number
+
+            # Get label using account
+            label_response = self._dpd_pt_request_with_account(
+                f"shipment/label/{tracking_number}",
+                {"format": self.dpd_portugal_label_format},
+                picking,
+            )
+            label_content = label_response.content
+
+            # Post message with label attachment
+            label_name = (
+                f"DPD_Portugal_Label_{tracking_number}"
+                f".{self.dpd_portugal_label_format.lower()}"
+            )
+            message = picking.message_post(
+                body=self.env._("DPD Portugal label generated"),
+                attachments=[(label_name, label_content)],
+            )
+
+            # Send email if enabled
+            if (
+                self.dpd_portugal_send_label_email
+                and picking.partner_id.email
+                and message.attachment_ids
+            ):
+                template = self.env.ref(
+                    "delivery_dpd_portugal.email_template_dpd_label",
+                    raise_if_not_found=False,
+                )
+                if template:
+                    template.send_mail(
+                        picking.id,
+                        force_send=True,
+                        email_values={
+                            "attachment_ids": [(4, message.attachment_ids[0].id)],
+                            "email_to": picking.partner_id.email,
+                        },
+                    )
+
+            result.append(
+                {
+                    "exact_price": shipment_response.get("price", 0.0),
+                    "tracking_number": shipment_response["tracking_number"],
+                }
+            )
 
         return result
 
@@ -264,21 +264,21 @@ class DeliveryCarrier(models.Model):
                 f"shipment/cancel/{picking.carrier_tracking_ref}", {}, picking
             ).json()
 
-            if response.get("success", False):
-                picking.message_post(
-                    body=self.env._(
-                        "DPD Portugal shipment %(tracking_ref)s cancelled",
-                        tracking_ref=picking.carrier_tracking_ref,
-                    )
-                )
-                picking.carrier_tracking_ref = False
-            else:
+            if not response.get("success"):
                 raise UserError(
                     self.env._(
                         "Failed to cancel shipment: %(message)s",
                         message=response.get("message", "Unknown error"),
                     )
                 )
+
+            picking.message_post(
+                body=self.env._(
+                    "DPD Portugal shipment %(tracking_ref)s cancelled",
+                    tracking_ref=picking.carrier_tracking_ref,
+                )
+            )
+            picking.carrier_tracking_ref = False
 
     def _prepare_dpd_pt_shipment_data(self, source):
         """Prepare shipment data for DPD Portugal API."""
