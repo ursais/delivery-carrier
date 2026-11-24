@@ -22,7 +22,7 @@ class DeliveryCarrier(models.Model):
     )
 
     # DPD Portugal API Configuration
-    dpd_portugal_service_type = fields.Selection(
+    dpd_pt_service_type = fields.Selection(
         [
             ("standard", "Standard"),
             ("express", "Express"),
@@ -32,24 +32,24 @@ class DeliveryCarrier(models.Model):
         default="standard",
         help="DPD Portugal service type",
     )
-    dpd_portugal_label_format = fields.Selection(
+    dpd_pt_label_format = fields.Selection(
         [("PDF", "PDF"), ("ZPL", "ZPL")],
         string="Label Format",
         default="PDF",
         help="Format for shipping labels",
     )
-    dpd_portugal_default_package_type_id = fields.Many2one(
+    dpd_pt_default_package_type_id = fields.Many2one(
         "stock.package.type",
         string="Default Package Type",
         help="Default package type for DPD Portugal shipments",
     )
-    dpd_portugal_package_weight_unit = fields.Selection(
+    dpd_pt_package_weight_unit = fields.Selection(
         [("KG", "Kilograms"), ("LB", "Pounds")],
         string="Package Weight Unit",
         default="KG",
         help="Weight unit for packages",
     )
-    dpd_portugal_package_dimension_unit = fields.Selection(
+    dpd_pt_package_dimension_unit = fields.Selection(
         [("CM", "Centimeters"), ("IN", "Inches")],
         string="Package Dimension Unit",
         default="CM",
@@ -57,33 +57,33 @@ class DeliveryCarrier(models.Model):
     )
 
     # DPD Portugal Additional Services
-    dpd_portugal_cod_enabled = fields.Boolean(
+    dpd_pt_cod_enabled = fields.Boolean(
         string="Enable COD", help="Enable cash on delivery service"
     )
-    dpd_portugal_insurance_enabled = fields.Boolean(
+    dpd_pt_insurance_enabled = fields.Boolean(
         string="Enable Insurance", help="Enable shipping insurance"
     )
-    dpd_portugal_insurance_amount = fields.Float(
+    dpd_pt_insurance_amount = fields.Float(
         string="Insurance Amount",
         help="Default insurance amount for shipments",
     )
-    dpd_portugal_saturday_delivery = fields.Boolean(
+    dpd_pt_saturday_delivery = fields.Boolean(
         string="Saturday Delivery", help="Enable Saturday delivery service"
     )
-    dpd_portugal_predict_enabled = fields.Boolean(
+    dpd_pt_predict_enabled = fields.Boolean(
         string="Predict Service", help="Enable DPD Predict service"
     )
 
     # DPD Portugal Address & Contact Options
-    dpd_portugal_hide_recipient_phone = fields.Boolean(
+    dpd_pt_hide_recipient_phone = fields.Boolean(
         string="Hide Recipient Phone",
         help="Hide recipient phone number from shipping label",
     )
-    dpd_portugal_hide_recipient_email = fields.Boolean(
+    dpd_pt_hide_recipient_email = fields.Boolean(
         string="Hide Recipient Email",
         help="Hide recipient email from shipping label",
     )
-    dpd_portugal_send_label_email = fields.Boolean(
+    dpd_pt_send_label_email = fields.Boolean(
         string="Send Label by Email",
         help="Automatically send shipping label by email",
     )
@@ -97,14 +97,14 @@ class DeliveryCarrier(models.Model):
                 carrier.can_generate_return = True
         return result
 
-    @api.depends("delivery_type", "dpd_portugal_insurance_enabled")
+    @api.depends("delivery_type", "dpd_pt_insurance_enabled")
     def _compute_supports_shipping_insurance(self):
         """Compute if carrier supports shipping insurance."""
         result = super()._compute_supports_shipping_insurance()
         for carrier in self:
             if carrier.delivery_type == "dpd_pt":
                 carrier.supports_shipping_insurance = (
-                    carrier.dpd_portugal_insurance_enabled
+                    carrier.dpd_pt_insurance_enabled
                 )
         return result
 
@@ -174,15 +174,15 @@ class DeliveryCarrier(models.Model):
             # Get label using account
             label_response = self._dpd_pt_request_with_account(
                 f"shipment/label/{tracking_number}",
-                {"format": self.dpd_portugal_label_format},
+                {"format": self.dpd_pt_label_format},
                 picking,
             )
             label_content = label_response.content
 
             # Post message with label attachment
             label_name = (
-                f"DPD_Portugal_Label_{tracking_number}"
-                f".{self.dpd_portugal_label_format.lower()}"
+                f"DPD_PT_Label_{tracking_number}"
+                f".{self.dpd_pt_label_format.lower()}"
             )
             message = picking.message_post(
                 body=self.env._("DPD Portugal label generated"),
@@ -191,12 +191,12 @@ class DeliveryCarrier(models.Model):
 
             # Send email if enabled
             if (
-                self.dpd_portugal_send_label_email
+                self.dpd_pt_send_label_email
                 and picking.partner_id.email
                 and message.attachment_ids
             ):
                 template = self.env.ref(
-                    "delivery_dpd_portugal.email_template_dpd_label",
+                    "delivery_dpd_pt.email_template_dpd_label",
                     raise_if_not_found=False,
                 )
                 if template:
@@ -309,9 +309,9 @@ class DeliveryCarrier(models.Model):
                 "width": package.width or 10,
                 "height": package.height or 10,
             }
-        elif self.dpd_portugal_default_package_type_id:
+        elif self.dpd_pt_default_package_type_id:
             # Use default package type dimensions
-            package_type = self.dpd_portugal_default_package_type_id
+            package_type = self.dpd_pt_default_package_type_id
             dimensions = {
                 "length": package_type.length or 10,
                 "width": package_type.width or 10,
@@ -339,10 +339,10 @@ class DeliveryCarrier(models.Model):
                 "zip": recipient.zip,
                 "country": recipient.country_id.code,
                 "phone": recipient.phone
-                if not self.dpd_portugal_hide_recipient_phone
+                if not self.dpd_pt_hide_recipient_phone
                 else None,
                 "email": recipient.email
-                if not self.dpd_portugal_hide_recipient_email
+                if not self.dpd_pt_hide_recipient_email
                 else None,
             },
             "package": {
@@ -354,16 +354,16 @@ class DeliveryCarrier(models.Model):
                 or getattr(source, "origin", ""),
             },
             "service": {
-                "level": self.dpd_portugal_service_type,
-                "saturday_delivery": self.dpd_portugal_saturday_delivery,
-                "predict": self.dpd_portugal_predict_enabled,
+                "level": self.dpd_pt_service_type,
+                "saturday_delivery": self.dpd_pt_saturday_delivery,
+                "predict": self.dpd_pt_predict_enabled,
                 "cod": {
-                    "enabled": self.dpd_portugal_cod_enabled,
-                    "amount": getattr(source, "dpd_portugal_cod_amount", 0.0),
+                    "enabled": self.dpd_pt_cod_enabled,
+                    "amount": getattr(source, "dpd_pt_cod_amount", 0.0),
                 },
                 "insurance": {
-                    "enabled": self.dpd_portugal_insurance_enabled,
-                    "amount": self.dpd_portugal_insurance_amount,
+                    "enabled": self.dpd_pt_insurance_enabled,
+                    "amount": self.dpd_pt_insurance_amount,
                 },
             },
         }

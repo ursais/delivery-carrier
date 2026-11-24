@@ -42,11 +42,11 @@ class TestDeliveryDPDPortugal(TransactionCase):
             {
                 "name": "DPD Portugal Test",
                 "delivery_type": "dpd_pt",
-                "dpd_portugal_service_type": "standard",
-                "dpd_portugal_label_format": "PDF",
-                "dpd_portugal_cod_enabled": True,
-                "dpd_portugal_insurance_enabled": True,
-                "dpd_portugal_insurance_amount": 100.0,
+                "dpd_pt_service_type": "standard",
+                "dpd_pt_label_format": "PDF",
+                "dpd_pt_cod_enabled": True,
+                "dpd_pt_insurance_enabled": True,
+                "dpd_pt_insurance_amount": 100.0,
                 "product_id": self.env.ref("delivery.product_product_delivery").id,
             }
         )
@@ -54,9 +54,9 @@ class TestDeliveryDPDPortugal(TransactionCase):
     def test_carrier_creation(self):
         """Test DPD Portugal carrier creation."""
         self.assertEqual(self.dpd_carrier.delivery_type, "dpd_pt")
-        self.assertEqual(self.dpd_carrier.dpd_portugal_service_type, "standard")
+        self.assertEqual(self.dpd_carrier.dpd_pt_service_type, "standard")
         self.assertFalse(self.dpd_carrier.prod_environment)
-        self.assertTrue(self.dpd_carrier.dpd_portugal_cod_enabled)
+        self.assertTrue(self.dpd_carrier.dpd_pt_cod_enabled)
 
     def test_can_generate_return(self):
         """Test return shipment capability."""
